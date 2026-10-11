@@ -206,8 +206,9 @@ export const SettingsView: React.FC = () => {
               Workstation Settings & Hardware Diagnostics
             </h1>
             <p className="text-xs text-text-muted mt-1">
-              Configure endpoints, audit local subsystem readiness, and run reproducible GPU hardware benchmarks on NVIDIA RTX 5070 Ti.
+              Configure endpoints, audit local subsystem readiness, and run reproducible GPU hardware benchmarks on {telemetry?.gpu_name || gpu?.name || 'NVIDIA RTX graphics cards'}.
             </p>
+
           </div>
         </div>
 
@@ -325,17 +326,29 @@ export const SettingsView: React.FC = () => {
 
           {/* Real Hardware Accelerator Telemetry Card */}
           <div className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center space-x-3">
                 <div className="p-2 rounded-xl bg-accent/20 border border-accent/40 text-accent">
                   <Cpu className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-text-primary">
-                    Hardware Accelerator: {telemetry?.gpu_name || gpu?.name || 'NVIDIA GeForce RTX 5070 Ti'}
-                  </h2>
-                  <p className="text-xs text-text-muted">
-                    {telemetry ? `${(telemetry.total_vram_mb / 1024).toFixed(1)} GB GDDR7 Dedicated VRAM` : 'Hardware monitoring active'}
+                  <div className="flex items-center space-x-2 flex-wrap">
+                    <h2 className="text-sm font-semibold text-text-primary">
+                      {telemetry?.gpu_name || gpu?.name || 'NVIDIA GeForce RTX GPU'}
+                    </h2>
+                    {telemetry?.gpu_architecture && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/30 font-semibold">
+                        {telemetry.gpu_architecture} {telemetry.compute_capability ? `(${telemetry.compute_capability})` : ''}
+                      </span>
+                    )}
+                    {telemetry?.vram_tier_label && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-elevated text-text-dim border border-border-subtle">
+                        {telemetry.vram_tier_label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {telemetry ? `${(telemetry.total_vram_mb / 1024).toFixed(1)} GB Dedicated VRAM • Hardware monitoring active` : 'Hardware monitoring active'}
                   </p>
                 </div>
               </div>
@@ -345,6 +358,21 @@ export const SettingsView: React.FC = () => {
                 </span>
               )}
             </div>
+
+            {/* Precision & Features Badges */}
+            {telemetry?.precision_support && telemetry.precision_support.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[10px] font-mono uppercase text-text-dim mr-1">Precision Support:</span>
+                {telemetry.precision_support.map((prec) => (
+                  <span
+                    key={prec}
+                    className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-surface-elevated border border-border-subtle text-text-primary"
+                  >
+                    {prec}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* VRAM Progress Gauge */}
             <div className="space-y-2">
@@ -378,6 +406,7 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
           </div>
+
 
           {/* Workstation Storage Directories */}
           <div className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4">
@@ -720,8 +749,9 @@ export const SettingsView: React.FC = () => {
                   <h3 className="font-semibold text-base text-text-primary">Start Hardware Benchmark</h3>
                 </div>
                 <p className="text-xs text-text-muted">
-                  This benchmark will acquire an exclusive GPU isolation lease, run an unmeasured 5-step warm-up to prime CUDA contexts, and measure 20 steps of diffusion on the RTX 5070 Ti.
+                  This benchmark will acquire an exclusive GPU isolation lease, run an unmeasured 5-step warm-up to prime CUDA contexts, and measure 20 steps of diffusion on {telemetry?.gpu_name || gpu?.name || 'your NVIDIA RTX GPU'}.
                 </p>
+
                 <div className="p-3 rounded-xl bg-status-warning/15 border border-status-warning/30 text-xs text-status-warning font-mono">
                   Any queued generation will wait until the benchmark completes.
                 </div>

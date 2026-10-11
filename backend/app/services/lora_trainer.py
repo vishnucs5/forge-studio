@@ -105,13 +105,14 @@ class LoRANetwork(nn.Module):
 class RealLoRATrainer:
     @staticmethod
     def train_job_sync(job_id: str) -> None:
-        """Synchronously executes real PyTorch LoRA training on the RTX 5070 Ti."""
+        """Synchronously executes real PyTorch LoRA training on NVIDIA RTX GPU."""
         asyncio.run(RealLoRATrainer.train_job(job_id))
 
     @staticmethod
     async def train_job(job_id: str) -> None:
-        """Executes real LoRA training loop on NVIDIA RTX 5070 Ti and persists progress."""
+        """Executes real LoRA training loop on NVIDIA RTX GPU (Ampere, Ada Lovelace, Blackwell) and persists progress."""
         async with async_session_maker() as db:
+
             result = await db.execute(select(TrainingJobRecord).where(TrainingJobRecord.id == job_id))
             job = result.scalar_one_or_none()
             if not job:

@@ -1,14 +1,15 @@
 # Forge Studio — Local AI Workstation
 
-> **A professional, privacy-first local AI workstation and creative synthesis studio for NVIDIA RTX GPUs (specifically tuned for the GeForce RTX 5070 Ti 16 GB Blackwell architecture), featuring ComfyUI execution, Ollama Qwen3-Coder 30B Copilot, PyTorch LoRA Training, VRAM-aware scheduling, presets, interactive inpainting, and hardware diagnostics.**
+> **A professional, privacy-first local AI workstation and creative synthesis studio for NVIDIA RTX GPUs (universally compatible across all GeForce RTX 30-series Ampere, 40-series Ada Lovelace, and 50-series Blackwell graphics cards), featuring ComfyUI execution, Ollama Qwen3-Coder 30B Copilot, PyTorch LoRA Training, VRAM-aware scheduling, presets, interactive inpainting, and hardware diagnostics.**
 
 [![GitHub License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6.svg)](https://www.typescriptlang.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.12%2Bcu128-EE4C2C.svg)](https://pytorch.org/)
-[![CUDA](https://img.shields.io/badge/CUDA-12.8%20%2F%20sm__120-76B900.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![NVIDIA RTX](https://img.shields.io/badge/NVIDIA%20RTX-30%20%7C%2040%20%7C%2050%20Series-76B900.svg)](https://www.nvidia.com/geforce/)
+[![Compute Capability](https://img.shields.io/badge/Compute-sm__86%20%7C%20sm__89%20%7C%20sm__120-green.svg)](https://developer.nvidia.com/cuda-gpus)
+[![PyTorch](https://img.shields.io/badge/PyTorch-cu124%20%7C%20cu128-EE4C2C.svg)](https://pytorch.org/)
 
 ---
 
@@ -20,10 +21,13 @@
    - [ControlNet Conditioning](#controlnet-conditioning)
    - [LoRA Vault & Native LoRA Training](#lora-vault--native-lora-training)
    - [Workflow Presets & Diff Review](#workflow-presets--diff-review)
-3. [RTX 5070 Ti VRAM Safety & Hardware Coordination](#3-rtx-5070-ti-vram-safety--hardware-coordination)
+3. [Universal NVIDIA RTX 30, 40 & 50 Series Compatibility & VRAM Coordination](#3-universal-nvidia-rtx-30-40--50-series-compatibility--vram-coordination)
+   - [Hardware Generation & Compute Capability Matrix](#hardware-generation--compute-capability-matrix)
+   - [4-Tier VRAM Allocation & Scaling Architecture](#4-tier-vram-allocation--scaling-architecture)
+   - [Hardware-Adaptive LoRA Training Presets](#hardware-adaptive-lora-training-presets)
    - [Dynamic VRAM Baseline & Heuristic Estimator](#dynamic-vram-baseline--heuristic-estimator)
    - [Atomic GPU Lease Coordinator](#atomic-gpu-lease-coordinator)
-   - [User VRAM Policies](#user-vram-policies)
+   - [User VRAM Policies & Tier-Aware Copilot Headroom](#user-vram-policies--tier-aware-copilot-headroom)
    - [Priority Queue Scheduler & Starvation Aging](#priority-queue-scheduler--starvation-aging)
 4. [Studio Copilot (Qwen3-Coder 30B via Ollama)](#4-studio-copilot-qwen3-coder-30b-via-ollama)
 5. [System Diagnostics & Hardware Benchmark Suite](#5-system-diagnostics--hardware-benchmark-suite)
@@ -31,9 +35,10 @@
 7. [Directory Structure](#7-directory-structure)
 8. [Quickstart & Startup Commands](#8-quickstart--startup-commands)
 9. [Keyboard Shortcuts](#9-keyboard-shortcuts)
-10. [Verification & Test Suite (105 Tests)](#10-verification--test-suite-105-tests)
+10. [Verification & Test Suite (110 Tests)](#10-verification--test-suite-110-tests)
 
 ---
+
 
 ## 1. Overview & System Architecture
 
@@ -148,9 +153,70 @@ Forge Studio delivers a responsive, darkroom-aesthetic (`#11110F`) local generat
 
 ---
 
-## 3. RTX 5070 Ti VRAM Safety & Hardware Coordination
+## 3. Universal NVIDIA RTX 30, 40 & 50 Series Compatibility & VRAM Coordination
 
-Forge Studio is specifically engineered for modern 16 GB GPUs (such as the **NVIDIA GeForce RTX 5070 Ti**) to prevent Out-Of-Memory (CUDA OOM) failures and resource competition.
+Forge Studio features an adaptive hardware profiling engine (`GpuHardwareProfiler`) that dynamically identifies GPU microarchitecture, compute capability (`sm_86`, `sm_89`, `sm_120`), total physical memory, and supported tensor precision formats. It scales all generation, training, and Copilot workflows smoothly from 8 GB desktop cards up to 32 GB enthusiast workstations.
+
+### Hardware Generation & Compute Capability Matrix
+
+| Generation | Architecture | Compute Capability | Key Graphic Cards | Hardware Precision | PyTorch Target |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **RTX 50-Series** | **Blackwell** | `sm_120` (12.0) | RTX 5070 (12GB), RTX 5070 Ti (16GB), RTX 5080 (16GB), RTX 5090 (32GB) | `fp16`, `bf16`, `fp8`, `tf32` | PyTorch Nightly (`cu128`) |
+| **RTX 40-Series** | **Ada Lovelace** | `sm_89` (8.9) | RTX 4060 (8GB), RTX 4060 Ti (8/16GB), RTX 4070 (12GB), RTX 4080 (16GB), RTX 4090 (24GB) | `fp16`, `bf16`, `fp8`, `tf32` | PyTorch Stable (`cu124` / `cu121`) |
+| **RTX 30-Series** | **Ampere** | `sm_86` / `sm_80` (8.6 / 8.0) | RTX 3060 (8/12GB), RTX 3070 (8GB), RTX 3080 (10/12GB), RTX 3090 (24GB) | `fp16`, `bf16`, `tf32` | PyTorch Stable (`cu124` / `cu121`) |
+
+### 4-Tier VRAM Allocation & Scaling Architecture
+
+The system categorizes GPU memory into 4 operational tiers to guarantee zero Out-Of-Memory (CUDA OOM) failures:
+
+1. **Tier 1: Compact 8 GB ($\le 8,500\text{ MB}$):**
+   - *Target Hardware:* RTX 3050, RTX 3060 8GB, RTX 3070, RTX 3070 Ti, RTX 4060, RTX 4060 Ti 8GB.
+   - *Generation Baseline:* 512–768px for SD 1.5; 768–896px for SDXL.
+   - *Copilot Coordination:* Requires $\ge 3,000\text{ MB}$ headroom; Copilot requests are safely blocked during active diffusion to protect workstation memory.
+   - *Training Preset:* Rank 8, Alpha 8, Resolution 512px, Batch size 1, Gradient Checkpointing enabled.
+
+2. **Tier 2: Mid 12 GB ($8,501 - 13,000\text{ MB}$):**
+   - *Target Hardware:* RTX 3060 12GB, RTX 3080 10/12GB, RTX 4070 / Super 12GB, RTX 4070 Ti 12GB, RTX 5070 12GB.
+   - *Generation Baseline:* Native SDXL 1024×1024 sampling without VRAM paging.
+   - *Copilot Coordination:* Allowed concurrently if free VRAM $\ge 3,500\text{ MB}$.
+   - *Training Preset:* Rank 16, Alpha 16, Resolution 1024px, Batch size 1, Gradient Checkpointing enabled.
+
+3. **Tier 3: High 16 GB ($13,001 - 18,000\text{ MB}$):**
+   - *Target Hardware:* RTX 4060 Ti 16GB, RTX 4070 Ti Super 16GB, RTX 4080 / Super 16GB, RTX 5070 Ti 16GB, RTX 5080 16GB.
+   - *Generation Baseline:* 1024×1024 to 1536×1536 high-res passes, dual-LoRA stacking, ControlNet preprocessors.
+   - *Copilot Coordination:* Full concurrent execution with $\ge 4,096\text{ MB}$ headroom.
+   - *Training Preset:* Rank 16, Alpha 16, Mixed precision `bf16`, Batch size 1, Gradient Checkpointing enabled (~12.5 GB peak).
+
+4. **Tier 4: Enthusiast 24 GB+ ($> 18,000\text{ MB}$):**
+   - *Target Hardware:* RTX 3090, RTX 3090 Ti, RTX 4090 24GB, RTX 5090 32GB.
+   - *Generation Baseline:* Ultra-high resolution 1536–2048px, concurrent models loaded in VRAM.
+   - *Copilot Coordination:* Copilot inference permitted alongside rendering at all times.
+   - *Training Preset:* Rank 32/64, Resolution 1024px, Batch size 2–4, full uncheckpointed backpropagation.
+
+### Hardware-Adaptive LoRA Training Presets
+
+The training engine auto-detects installed hardware and loads optimal hyperparameter profiles:
+
+```json
+{
+  "tier1_compact_8gb": {
+    "resolution": 512, "batch_size": 1, "network_dim": 8, "network_alpha": 8,
+    "mixed_precision": "fp16", "gradient_checkpointing": true, "estimated_vram_gb": 6.8
+  },
+  "tier2_mid_12gb": {
+    "resolution": 1024, "batch_size": 1, "network_dim": 16, "network_alpha": 16,
+    "mixed_precision": "bf16", "gradient_checkpointing": true, "estimated_vram_gb": 10.5
+  },
+  "tier3_high_16gb": {
+    "resolution": 1024, "batch_size": 1, "network_dim": 16, "network_alpha": 16,
+    "mixed_precision": "bf16", "gradient_checkpointing": true, "estimated_vram_gb": 12.5
+  },
+  "tier4_enthusiast_24gb": {
+    "resolution": 1024, "batch_size": 2, "network_dim": 32, "network_alpha": 32,
+    "mixed_precision": "bf16", "gradient_checkpointing": false, "estimated_vram_gb": 18.0
+  }
+}
+```
 
 ### Dynamic VRAM Baseline & Heuristic Estimator
 - Dynamically queries physical VRAM via `GpuMonitor` and `nvidia-smi` (no hardcoded constants).
@@ -169,9 +235,9 @@ Forge Studio is specifically engineered for modern 16 GB GPUs (such as the **NVI
   - Hardware Benchmarking
 - Protected by an `asyncio.Lock()`, with a 300-second TTL and heartbeat renewal (`heartbeat(job_id)`) to automatically release orphan leases in the event of an abnormal worker exit.
 
-### User VRAM Policies
+### User VRAM Policies & Tier-Aware Copilot Headroom
 Users can select their operating threshold directly from the header:
-* **Balanced (85% limit):** Standard mode; Copilot text inference is allowed concurrently if free VRAM $\ge 4.0\text{ GB}$.
+* **Balanced (85% limit):** Standard mode; Copilot text inference is allowed concurrently when free VRAM satisfies the tier headroom threshold ($3.0\text{ GB}$ on Tier 1, $3.5\text{ GB}$ on Tier 2, $4.0\text{ GB}$ on Tiers 3 & 4).
 * **Maximum Quality (92% limit):** Maximizes VRAM budget for high-resolution generation; Copilot requests are temporarily blocked during heavy sampling passes.
 * **Maximum Speed (78% limit):** Lower memory threshold for rapid generation without throttling.
 * **Conservative (65% limit):** Strict ceiling leaving ample headroom for background 3D or video applications.
@@ -183,6 +249,7 @@ Users can select their operating threshold directly from the header:
 * **Decoupled Cancellation:**
   - `Cancel All Queued` cancels queued and waiting jobs without touching running tasks or clearing completed history.
   - `Interrupt Active` sends a `/interrupt` signal directly to ComfyUI, releases the GPU lease, and updates the active generation status to `cancelled`.
+
 
 ---
 
@@ -400,6 +467,7 @@ c:\vishnu\.venv\Scripts\python.exe -m pytest -v
 ```
 
 ### Test Coverage Summary:
+* `test_gpu_compatibility.py` (5 tests): Universal Ampere (`sm_86`), Ada Lovelace (`sm_89`), and Blackwell (`sm_120`) profiling, 4-tier VRAM allocation scaling, adaptive hyperparameter presets, tier-aware Copilot headroom thresholds.
 * `test_comfyui_adapter.py` (6 tests): Graph generation, dual-LoRA chaining, cancel via `/interrupt`, queue clearing.
 * `test_copilot.py` (7 tests): Qwen3-Coder chat, parameter parsing, offline heuristics.
 * `test_copilot_and_error_sanitizer.py` (21 tests): 120s timeout, token ceiling truncation, 5 advisory action cards, path and Bearer token redaction, transient vs permanent classification.
@@ -414,8 +482,9 @@ c:\vishnu\.venv\Scripts\python.exe -m pytest -v
 * `test_training.py` (5 tests): Dataset integrity validator, caption prefix preview/apply with `.txt.bak` backup creation, native PyTorch trainer execution.
 
 ```text
-============================ 105 passed in 45.71s =============================
+============================ 110 passed in 28.81s =============================
 ```
+
 
 ### Frontend Typecheck & Production Build:
 ```powershell

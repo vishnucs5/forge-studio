@@ -215,6 +215,16 @@ export interface TrainingHealthResponse {
   message: string;
   supported_engines: string[];
   gpu_vram_gb: number;
+  gpu_profile?: {
+    gpu_name?: string;
+    gpu_series?: string;
+    architecture?: string;
+    compute_capability?: string | null;
+    vram_tier?: string;
+    vram_tier_label?: string;
+    precision_support?: string[];
+    preferred_training_precision?: string;
+  };
   recommended_preset: {
     resolution: number;
     batch_size: number;
@@ -227,8 +237,12 @@ export interface TrainingHealthResponse {
     max_train_steps: number;
     estimated_vram_gb: number;
     notes?: string;
+    gpu_architecture?: string;
+    gpu_series?: string;
+    vram_tier?: string;
   };
 }
+
 
 export interface TrainingJobResponse {
   id: string;
@@ -278,6 +292,12 @@ export interface ActiveLeaseInfo {
 
 export interface TelemetryResponse {
   gpu_name: string;
+  gpu_series?: string;
+  gpu_architecture?: string;
+  compute_capability?: string | null;
+  vram_tier?: 'tier1_compact_8gb' | 'tier2_mid_12gb' | 'tier3_high_16gb' | 'tier4_enthusiast_24gb' | string;
+  vram_tier_label?: string;
+  precision_support?: string[];
   total_vram_mb: number;
   used_vram_mb: number;
   free_vram_mb: number;
@@ -295,6 +315,7 @@ export interface TelemetryResponse {
   backend_latency_ms: number;
   sampled_at: string;
 }
+
 
 export interface PresetModel {
   id: string;

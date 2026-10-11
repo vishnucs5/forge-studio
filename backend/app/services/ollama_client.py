@@ -6,6 +6,8 @@ import httpx
 
 from app.config import settings
 from app.schemas.copilot import CopilotRequest, CopilotResponse, CopilotSettingsSuggestion
+from app.services.gpu_monitor import GpuMonitor
+
 
 DEFAULT_TIMEOUT: float = 120.0
 MAX_CONTEXT_TOKENS: int = 8192
@@ -197,14 +199,18 @@ class OllamaClient:
         if not online:
             return self._offline_fallback(req)
 
+        gpu_stat = GpuMonitor.get_status()
+        gpu_target = gpu_stat.name if gpu_stat.available else "NVIDIA GeForce RTX GPU"
+
         system_instruction = (
             "You are Studio Copilot, an AI art director and SDXL generation specialist inside Forge Studio. "
             "You help users craft vivid, evocative prompts, configure optimal technical parameters (steps, CFG, sampler, resolution), "
-            "and suggest structured generation recipes for their local RTX 5070 Ti workstation. "
+            f"and suggest structured generation recipes for their local {gpu_target} workstation. "
             "Never execute shell commands or output system scripts. "
             "When providing settings suggestions, include a JSON block in format: "
             '```json\n{"prompt": "...", "negative_prompt": "...", "width": 1024, "height": 1024, "steps": 28, "cfg_scale": 6.5, "sampler": "euler"}\n```'
         )
+
 
         safe_input = self.truncate_prompt(req.message)
         user_content = (
@@ -397,10 +403,12 @@ class OllamaClient:
             return CopilotResponse(reply=reply, suggested_settings=settings_sugg)
 
         elif req.task == "explain":
+            gpu_stat = GpuMonitor.get_status()
+            gpu_target = gpu_stat.name if gpu_stat.available else "NVIDIA GeForce RTX GPUs"
             reply = (
                 "*(Studio Copilot — Workstation Guide)*\n\n"
                 "• **Width & Height**: Latent dimensions. SDXL native baseline is 1024×1024; SD 1.5 is 512×512.\n"
-                "• **Steps**: Denoising iterations. 20–28 steps give optimal speed/fidelity on RTX 5070 Ti.\n"
+                f"• **Steps**: Denoising iterations. 20–28 steps give optimal speed/fidelity on {gpu_target}.\n"
                 "• **CFG Scale**: Classifier-Free Guidance. Controls adherence to prompt (4.5 creative, 6.5 balanced, 8.0 strict).\n"
                 "• **Sampler**: Math solver for ODEs. Euler is fast; DPM++ 2M SDE yields rich micro-details.\n"
                 "• **Denoise**: In Image-to-Image / Inpaint, governs how much original latent data is replaced.\n"
@@ -408,6 +416,7 @@ class OllamaClient:
                 "• **Inpaint**: Masked region latent blending using VAEEncodeForInpaint and feathered edge blending."
             )
             return CopilotResponse(reply=reply)
+
 
         else:
             settings_sugg = CopilotSettingsSuggestion(

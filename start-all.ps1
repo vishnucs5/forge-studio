@@ -6,7 +6,8 @@ Write-Host "  Starting Forge Studio Workstation Stack" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
 # 1. Start Ollama with GPU acceleration
-Write-Host "[1/4] Starting Ollama with RTX 5070 Ti GPU Acceleration..." -ForegroundColor Green
+Write-Host "[1/4] Starting Ollama with NVIDIA RTX GPU Acceleration..." -ForegroundColor Green
+
 Remove-Item Env:OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Remove-Item Env:OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue; ollama serve" -WindowStyle Minimized
 

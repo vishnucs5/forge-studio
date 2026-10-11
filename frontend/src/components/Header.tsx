@@ -185,7 +185,16 @@ export const Header: React.FC = () => {
               <span className="text-text-primary font-medium truncate max-w-[140px]" title={telemetry.gpu_name}>
                 {telemetry.gpu_name}
               </span>
+              {telemetry.gpu_architecture && (
+                <span
+                  className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/30 font-semibold"
+                  title={`GPU Architecture: ${telemetry.gpu_architecture} (${telemetry.compute_capability || ''})`}
+                >
+                  {telemetry.gpu_architecture.includes('Ada') ? 'Ada' : telemetry.gpu_architecture.split(' ')[0]}
+                </span>
+              )}
               <span className="text-text-dim">|</span>
+
               <div className="flex items-center space-x-1.5">
                 <span className={vramPercent > 85 ? 'text-status-warning font-semibold' : 'text-text-muted'}>
                   {(telemetry.used_vram_mb / 1024).toFixed(1)} / {(telemetry.total_vram_mb / 1024).toFixed(1)} GB

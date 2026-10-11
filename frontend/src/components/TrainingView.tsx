@@ -31,7 +31,8 @@ import {
 } from '../types';
 
 export const TrainingView: React.FC = () => {
-  const { setActiveNav, setErrorMessage } = useStudioStore();
+  const { setActiveNav, setErrorMessage, telemetry } = useStudioStore();
+
 
   const [health, setHealth] = useState<TrainingHealthResponse | null>(null);
   const [loadingHealth, setLoadingHealth] = useState(true);
@@ -332,9 +333,10 @@ export const TrainingView: React.FC = () => {
               <Cpu className="w-6 h-6 text-accent" />
               <span>LoRA Training Studio</span>
               <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-surface-elevated text-accent border border-border-subtle">
-                RTX 5070 Ti Profile
+                {health?.gpu_profile?.gpu_series || telemetry?.gpu_series || 'NVIDIA RTX Profile'}
               </span>
             </h1>
+
             <p className="text-xs text-text-muted mt-1">
               Fine-tune custom LoRA adapters locally using hardware-accelerated mixed precision.
             </p>
@@ -440,8 +442,9 @@ export const TrainingView: React.FC = () => {
                 <div className="p-3.5 rounded-xl bg-surface-elevated border border-border-subtle text-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-text-primary font-mono text-[11px]">
-                      Option A: Install AI-Toolkit (Native SDXL / RTX 5070 Ti bf16)
+                      Option A: Install AI-Toolkit (Native SDXL / NVIDIA RTX bf16)
                     </span>
+
                     <button
                       onClick={() =>
                         copyCommand(
@@ -834,7 +837,7 @@ cd c:\\vishnu\\kohya_ss
         </div>
       )}
 
-      {/* 5. Step 4: Hyperparameters & RTX 5070 Ti Preset */}
+      {/* 5. Step 4: Hyperparameters & Dynamic GPU Preset */}
       {activeStep === 4 && (
         <div className="space-y-6">
           <div className="space-y-1">
@@ -843,7 +846,7 @@ cd c:\\vishnu\\kohya_ss
               Hyperparameters & Precision Tuning
             </h2>
             <p className="text-xs text-text-dim">
-              Verified safe defaults for the 16GB NVIDIA GeForce RTX 5070 Ti Blackwell architecture.
+              Verified safe defaults for {health?.gpu_profile?.gpu_series || telemetry?.gpu_series || 'NVIDIA RTX graphics cards'}.
             </p>
           </div>
 
@@ -852,14 +855,17 @@ cd c:\\vishnu\\kohya_ss
             <Zap className="w-4 h-4 text-accent shrink-0 mt-0.5" />
             <div className="space-y-1">
               <span className="font-semibold text-accent block">
-                RTX 5070 Ti Blackwell Safe Profile Loaded
+                {health?.gpu_profile?.gpu_series || telemetry?.gpu_series || 'NVIDIA RTX'} Safe Profile Loaded
               </span>
               <p className="text-text-muted text-[11px] leading-relaxed">
-                Network Dimension 16 • Alpha 16 • Mixed Precision bf16 • Batch Size 1 • Gradient Checkpointing Enabled.
-                Estimated peak VRAM: <strong>~12.5 GB</strong> (leaves ~3.5 GB headroom for OS desktop composition).
+                {health?.recommended_preset?.notes || 'Dynamic hardware-aware hyperparameter preset.'}
+                {health?.recommended_preset?.estimated_vram_gb && (
+                  <> Estimated peak VRAM: <strong>~{health.recommended_preset.estimated_vram_gb} GB</strong>.</>
+                )}
               </p>
             </div>
           </div>
+
 
           {/* Config Grid */}
           <div className="p-6 rounded-2xl bg-surface border border-border-subtle grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">

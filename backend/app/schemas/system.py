@@ -57,6 +57,12 @@ class ActiveLeaseInfo(BaseModel):
 
 class TelemetryResponse(BaseModel):
     gpu_name: str
+    gpu_series: str = "NVIDIA RTX"
+    gpu_architecture: str = "Modern NVIDIA GPU"
+    compute_capability: str | None = None
+    vram_tier: str = "tier3_high_16gb"
+    vram_tier_label: str = "16 GB High Tier"
+    precision_support: list[str] = Field(default_factory=lambda: ["fp16", "bf16"])
     total_vram_mb: int
     used_vram_mb: int
     free_vram_mb: int
@@ -73,4 +79,5 @@ class TelemetryResponse(BaseModel):
     is_stale: bool = False
     backend_latency_ms: float = 0.0
     sampled_at: datetime
+
 

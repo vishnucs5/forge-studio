@@ -32,9 +32,11 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ onRetry }) => {
     sendToInpaint,
     cancelActiveGeneration,
     systemStatus,
+    telemetry,
     mode,
     source_image_preview,
   } = useStudioStore();
+
 
   const [metadataOpen, setMetadataOpen] = useState(true);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -298,9 +300,10 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ onRetry }) => {
             <div className="space-y-1">
               <h3 className="text-sm font-semibold text-text-muted tracking-tight">Darkroom Ready</h3>
               <p className="text-xs leading-relaxed text-text-dim">
-                Enter your prompt and click <span className="text-accent font-medium">Generate</span> to synthesize on your RTX 5070 Ti.
+                Enter your prompt and click <span className="text-accent font-medium">Generate</span> to synthesize on your {telemetry?.gpu_name || 'NVIDIA RTX GPU'}.
               </p>
             </div>
+
 
             <div className="pt-2 flex items-center justify-center gap-2 text-[11px] font-mono text-text-dim">
               <span className="px-2 py-0.5 rounded bg-surface-elevated border border-border-subtle">

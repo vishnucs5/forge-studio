@@ -7,6 +7,8 @@ import time
 
 from app.schemas.system import ActiveLeaseInfo, GpuStatus, ObservedProcess, TelemetryResponse
 from app.services.gpu_monitor import GpuMonitor
+from app.services.gpu_profiler import GpuHardwareProfiler
+
 
 
 class GpuSafetyManager:
@@ -88,9 +90,12 @@ class GpuSafetyManager:
         policy: str = "balanced",
         free_vram_mb: int | None = None,
         is_heavy_render_active: bool = False,
+        total_vram_mb: int | None = None,
+        gpu_name: str | None = None,
     ) -> tuple[bool, str]:
         """
-        Evaluate if Copilot can run based on user policy and available free VRAM.
+        Evaluate if Copilot can run based on user policy and available free VRAM
+        across RTX 30, 40, and 50 series tiering.
         """
         p = policy.lower()
         if p == "max_quality":
@@ -98,21 +103,36 @@ class GpuSafetyManager:
                 return False, "Copilot blocked during heavy render under max_quality policy"
             return True, "Copilot allowed"
 
-        if free_vram_mb is None:
+        if free_vram_mb is None or total_vram_mb is None or gpu_name is None:
             status = GpuMonitor.get_status()
-            free_vram_mb = status.vram_free_mb if status.available else 0
+            if free_vram_mb is None:
+                free_vram_mb = status.vram_free_mb if status.available else 0
+            if total_vram_mb is None:
+                total_vram_mb = status.vram_total_mb if status.available else 0
+            if gpu_name is None:
+                gpu_name = status.name if status.available else None
+
+        profile = GpuHardwareProfiler.classify_hardware(gpu_name, total_vram_mb)
+        headroom_threshold = profile.get("copilot_headroom_mb", cls.COPILOT_MIN_FREE_VRAM_MB)
+        tier = profile.get("vram_tier", "tier3_high_16gb")
+
+        # In compact 8GB tier, block Copilot when heavy render is active to prevent paging
+        if tier == "tier1_compact_8gb" and is_heavy_render_active:
+            return False, "Copilot blocked on 8GB tier during active render to preserve workstation VRAM"
 
         if p == "balanced":
-            if free_vram_mb >= cls.COPILOT_MIN_FREE_VRAM_MB:
+            if free_vram_mb >= headroom_threshold:
                 return True, "Copilot allowed"
-            return False, f"Copilot requires >= 4.0 GB free VRAM (current: {free_vram_mb} MB) under balanced policy"
+            required_gb = round(headroom_threshold / 1024, 1)
+            return False, f"Copilot requires >= {required_gb} GB free VRAM (current: {free_vram_mb} MB) under balanced policy"
 
         if p == "conservative":
-            if free_vram_mb >= cls.COPILOT_MIN_FREE_VRAM_MB:
+            if free_vram_mb >= headroom_threshold:
                 return True, "Copilot allowed"
             return False, f"Copilot blocked: insufficient free VRAM under conservative policy ({free_vram_mb} MB)"
 
         return True, "Copilot allowed"
+
 
     @classmethod
     def can_allocate(
@@ -304,8 +324,19 @@ class GpuSafetyManager:
         state = self.determine_state(gpu_status, active_lease, observed_processes)
         backend_latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
+        profile = GpuHardwareProfiler.classify_hardware(
+            gpu_name=gpu_status.name if gpu_status.available else None,
+            total_vram_mb=gpu_status.vram_total_mb if gpu_status.available else 0,
+        )
+
         return TelemetryResponse(
             gpu_name=gpu_status.name if gpu_status.available else "GPU Unavailable",
+            gpu_series=profile["gpu_series"],
+            gpu_architecture=profile["architecture"],
+            compute_capability=profile["compute_capability"],
+            vram_tier=profile["vram_tier"],
+            vram_tier_label=profile["vram_tier_label"],
+            precision_support=profile["precision_support"],
             total_vram_mb=gpu_status.vram_total_mb if gpu_status.available else 0,
             used_vram_mb=gpu_status.vram_used_mb if gpu_status.available else 0,
             free_vram_mb=gpu_status.vram_free_mb if gpu_status.available else 0,
@@ -323,6 +354,7 @@ class GpuSafetyManager:
             backend_latency_ms=backend_latency_ms,
             sampled_at=now,
         )
+
 
 
 gpu_safety_manager = GpuSafetyManager()

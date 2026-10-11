@@ -9,6 +9,8 @@ from app.schemas.diagnostics import DiagnosticCheck, DiagnosticsReport
 from app.services.comfyui_client import ComfyUIClient
 from app.services.ollama_client import OllamaClient
 from app.services.training_engine import TrainingEngineService
+from app.services.gpu_profiler import GpuHardwareProfiler
+
 
 
 class DiagnosticsService:
@@ -261,21 +263,30 @@ class DiagnosticsService:
             )
 
     async def _check_cuda_execution(self, now: datetime) -> DiagnosticCheck:
-        rem_cmd = "pip install torch --index-url https://download.pytorch.org/whl/cu128"
         def _run_tensor_kernel():
             import torch
             if not torch.cuda.is_available():
-                return False, f"PyTorch {torch.__version__} initialized without CUDA support", None
-            x = torch.randn(512, 512, device="cuda", dtype=torch.bfloat16)
+                return False, f"PyTorch {torch.__version__} initialized without CUDA support", None, "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124"
+            # Choose precision dynamically (bf16 for Ampere+, fp16 fallback)
+            dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+            x = torch.randn(512, 512, device="cuda", dtype=dtype)
             y = x @ x
             torch.cuda.synchronize()
             dev_name = torch.cuda.get_device_name(0)
             cap = torch.cuda.get_device_capability(0)
-            details = f"Device: {dev_name}, Compute Capability: {cap[0]}.{cap[1]}, PyTorch: {torch.__version__}, CUDA: {torch.version.cuda}"
-            return True, dev_name, details
+
+            profile = GpuHardwareProfiler.classify_hardware(dev_name, compute_cap=cap)
+            details = (
+                f"Device: {dev_name} ({profile['gpu_series']}), "
+                f"Architecture: {profile['architecture']}, "
+                f"Compute Capability: {profile['compute_capability']}, "
+                f"Supported Precisions: {', '.join(profile['precision_support'])}, "
+                f"PyTorch: {torch.__version__}, CUDA: {torch.version.cuda}"
+            )
+            return True, dev_name, details, profile["recommended_pytorch_cmd"]
 
         try:
-            success, dev_name, details = await asyncio.to_thread(_run_tensor_kernel)
+            success, dev_name, details, rem_cmd = await asyncio.to_thread(_run_tensor_kernel)
             if success:
                 return DiagnosticCheck(
                     id="cuda_execution",
@@ -305,9 +316,10 @@ class DiagnosticsService:
                 status="error",
                 message=f"Live CUDA tensor execution failed: {str(e)}",
                 details=str(e),
-                remediation_cmd=rem_cmd,
+                remediation_cmd="pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124",
                 checked_at=now,
             )
+
 
     async def _check_training_readiness(self, now: datetime) -> DiagnosticCheck:
         rem_cmd = "Test-Path c:\\vishnu\\forge-studio\\backend\\app\\services\\training.py"

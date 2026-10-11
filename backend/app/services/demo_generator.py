@@ -174,8 +174,9 @@ class DemoGenerator:
         draw.text((pad + 20, h - pad - 32), f'"{prompt_snippet}"', fill=(245, 245, 245), font=font)
 
         # Footer instructions pill
-        instructions = "Connect ComfyUI (:8188) & set DEMO_MODE=false in .env for RTX 5070 Ti neural SDXL weights"
+        instructions = "Connect ComfyUI (:8188) & set DEMO_MODE=false in .env for NVIDIA RTX neural SDXL weights"
         draw.text((pad + 20, h - pad - 16), instructions, fill=(180, 175, 170), font=font)
+
 
         # Save to generated directory
         output_filename = f"{job_id}.png"

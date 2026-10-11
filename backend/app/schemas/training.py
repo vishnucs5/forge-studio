@@ -13,7 +13,9 @@ class TrainingHealthResponse(BaseModel):
     message: str
     supported_engines: list[str] = Field(default_factory=list)
     gpu_vram_gb: float = 0.0
+    gpu_profile: dict = Field(default_factory=dict)
     recommended_preset: dict = Field(default_factory=dict)
+
 
 
 class DatasetValidationRequest(BaseModel):

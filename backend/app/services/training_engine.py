@@ -24,6 +24,8 @@ from app.schemas.training import (
     TrainingJobResponse,
 )
 from app.services.gpu_monitor import GpuMonitor
+from app.services.gpu_profiler import GpuHardwareProfiler
+
 
 
 class TrainingEngineService:
@@ -86,20 +88,11 @@ class TrainingEngineService:
         available, name, msg = cls.detect_engine()
         gpu_status = GpuMonitor.get_status()
         vram_gb = round(gpu_status.vram_total_mb / 1024, 1) if gpu_status.available else 16.0
+        gpu_name = gpu_status.name if gpu_status.available else None
+        total_mb = gpu_status.vram_total_mb if gpu_status.available else 0
 
-        preset = {
-            "resolution": 1024,
-            "batch_size": 1,
-            "network_dim": 16,
-            "network_alpha": 16,
-            "learning_rate": 0.0001,
-            "text_encoder_lr": 0.00005,
-            "mixed_precision": "bf16",
-            "gradient_checkpointing": True,
-            "max_train_steps": 1000,
-            "estimated_vram_gb": 12.5,
-            "notes": "Optimized for NVIDIA GeForce RTX 5070 Ti (16GB VRAM)",
-        }
+        gpu_profile = GpuHardwareProfiler.classify_hardware(gpu_name, total_mb)
+        preset = GpuHardwareProfiler.get_adaptive_training_preset(gpu_name, total_mb)
 
         return TrainingHealthResponse(
             engine_available=available,
@@ -107,8 +100,10 @@ class TrainingEngineService:
             message=msg,
             supported_engines=["forge_trainer", "kohya_ss", "ai-toolkit"],
             gpu_vram_gb=vram_gb,
+            gpu_profile=gpu_profile,
             recommended_preset=preset,
         )
+
 
     @classmethod
     def validate_dataset(cls, dataset_path_str: str) -> DatasetValidationResponse:

@@ -8,7 +8,9 @@ from app.schemas.copilot import (
 )
 from app.services.ollama_client import OllamaClient
 from app.services.gpu_monitor import GpuMonitor
+from app.services.gpu_profiler import GpuHardwareProfiler
 from app.services.preset_engine import FACTORY_BUILTIN_PRESETS, preset_engine
+
 
 router = APIRouter(prefix="/copilot", tags=["Copilot"])
 
@@ -85,10 +87,13 @@ async def copilot_action(request: CopilotActionRequest) -> CopilotActionResponse
             "sampler": "dpmpp_2m",
         }
         orig_prompt = str(current_form.get("prompt") or "").strip()
+        gpu_status = GpuMonitor.get_status()
+        gpu_target = gpu_status.name if gpu_status.available else "NVIDIA RTX GPU"
         explanation = (
             "Configured for maximum fidelity: 30 denoising steps with DPM++ 2M sampler and native 1024x1024 resolution. "
-            "Prompt enriched with photographic detail cues to maximize micro-texture on RTX 5070 Ti."
+            f"Prompt enriched with photographic detail cues to maximize micro-texture on {gpu_target}."
         )
+
 
         metrics = {"duration_ms": 0, "offline_heuristic": not is_online}
 
@@ -126,31 +131,39 @@ async def copilot_action(request: CopilotActionRequest) -> CopilotActionResponse
 
         gpu_status = GpuMonitor.get_status()
         vram_mb = gpu_status.vram_total_mb if gpu_status.available else 16384
+        gpu_name = gpu_status.name if gpu_status.available else "NVIDIA RTX GPU"
+        profile = GpuHardwareProfiler.classify_hardware(gpu_name, vram_mb)
 
         if is_sdxl:
             if vram_mb >= 12000:
                 width, height = 1024, 1024
                 explanation = (
-                    f"SDXL architecture detected with {vram_mb} MB VRAM. "
+                    f"SDXL architecture detected on {profile['gpu_series']} ({vram_mb} MB VRAM, {profile['vram_tier_label']}). "
                     "Native 1024x1024 resolution is safe and optimal for the SDXL latent space without VRAM paging."
                 )
-            else:
+            elif vram_mb >= 8000:
                 width, height = 896, 896
                 explanation = (
-                    f"SDXL architecture detected with constrained VRAM ({vram_mb} MB). "
-                    "Recommending 896x896 to ensure headroom against out-of-memory errors."
+                    f"SDXL architecture detected on {profile['gpu_series']} ({vram_mb} MB VRAM). "
+                    "Recommending 896x896 to ensure headroom against out-of-memory errors on compact memory."
+                )
+            else:
+                width, height = 768, 768
+                explanation = (
+                    f"SDXL architecture on {profile['gpu_series']} with constrained memory ({vram_mb} MB). "
+                    "Recommending 768x768 to prevent CUDA out-of-memory errors."
                 )
         else:
             if vram_mb >= 8000:
                 width, height = 768, 768
                 explanation = (
-                    f"SD 1.5 architecture detected with {vram_mb} MB VRAM. "
+                    f"SD 1.5 architecture detected on {profile['gpu_series']} ({vram_mb} MB VRAM). "
                     "768x768 resolution delivers clean high-res output without latent duplication."
                 )
             else:
                 width, height = 512, 512
                 explanation = (
-                    f"SD 1.5 architecture detected. 512x512 is the native training baseline "
+                    f"SD 1.5 architecture detected on {profile['gpu_series']}. 512x512 is the native training baseline "
                     "and guaranteed safe against VRAM exhaustion."
                 )
 
@@ -160,6 +173,7 @@ async def copilot_action(request: CopilotActionRequest) -> CopilotActionResponse
             suggested_changes={"width": width, "height": height},
             metrics={"duration_ms": 0, "offline_heuristic": not is_online},
         )
+
 
     elif action_type == "explain_slowness":
         steps = int(current_form.get("steps") or 20)

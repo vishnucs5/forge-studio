@@ -57,9 +57,12 @@ export const CopilotDrawer: React.FC = () => {
     model,
     loras,
     systemStatus,
+    telemetry,
     presets,
     applyPresetToComposer,
   } = useStudioStore();
+
+
 
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -377,8 +380,9 @@ export const CopilotDrawer: React.FC = () => {
                 <span>Interactive AI Art Director</span>
               </div>
               <p className="text-text-muted leading-relaxed">
-                Copilot provides advisory guidance for your RTX 5070 Ti 16 GB workstation. All suggestions display diff cards and require your explicit review before applying.
+                Copilot provides advisory guidance for your {telemetry?.gpu_name || 'NVIDIA RTX'} workstation. All suggestions display diff cards and require your explicit review before applying.
               </p>
+
             </div>
 
             {/* Quick Task Triggers */}
@@ -418,7 +422,10 @@ export const CopilotDrawer: React.FC = () => {
                 >
                   <div className="space-y-0.5">
                     <span className="block text-xs font-semibold">Suggest VRAM-Safe Resolution</span>
-                    <span className="text-[10px] text-text-dim block">Evaluates 16 GB budget against model baseline</span>
+                    <span className="text-[10px] text-text-dim block">
+                      Evaluates {telemetry ? Math.round(telemetry.total_vram_mb / 1024) : 16} GB budget against model baseline
+                    </span>
+
                   </div>
                   <Shield className="w-4 h-4 text-accent" />
                 </button>
